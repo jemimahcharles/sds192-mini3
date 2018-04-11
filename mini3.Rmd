@@ -13,5 +13,8 @@ Using the GitHub repository[^1]
 [^1]: https://github.com/jemimahcharles/sds192-mini3.git
 
 ```{r, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(macleish)
+library(sf)
 
 ```
