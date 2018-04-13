@@ -17,9 +17,10 @@ library(tidyverse)
 library(macleish)
 library(leaflet)
 library(sf)
+library(rgdal)
 
 
-trails <- macleish_layers[["trails"]] %>%
+trails <- macleish_layers[["streams"]] %>%
   mutate(computed_length = st_length(geometry))
 
 proj4_aea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
@@ -29,6 +30,18 @@ boundaries_aea <- macleish_layers[["boundary"]] %>%
 
 leaflet() %>%
   addTiles() %>%
-  addPolylines(data = macleish_layers[["trails"]], color = "brown")
+  addPolygons(data = macleish_layers[["forests"]], 
+              weight = 1, fillOpacity =  0, color = "green", popup = ~ Sheet1__Na)%>%
+  addPolylines(data = macleish_layers[["streams"]], color = "blue")%>%
+  addPolylines(data = macleish_layers[["trails"]], color = "black")%>%
+  addPolygons(data = macleish_layers[["buildings"]], 
+              weight = 1, popup = ~name, color = "red") %>%
+  addPolylines(data = macleish_layers[["research"]], color = "brown")
 
+```
+```
+leaflet(macleish_layers[["buildings"]]) %>% 
+  addTiles() %>%
+  addCircles(lng = ~Long, lat = ~Lat, weight = 1,
+    radius = 50)
 ```
