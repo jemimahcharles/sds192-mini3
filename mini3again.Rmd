@@ -18,6 +18,7 @@ library(macleish)
 library(leaflet)
 library(sf)
 library(rgdal)
+library(htmltools)
 
 
 trails <- macleish_layers[["streams"]] %>%
@@ -33,6 +34,30 @@ research_buffer <- macleish_layers[["research"]]%>%
   st_buffer(dist = 152.4) %>%
   st_transform(4326)
 
+challenge_buffer <- macleish_layers[["challenge_courses"]]%>%
+  st_transform(proj4_aea) %>%
+  st_buffer(dist = 152.4) %>%
+  st_transform(4326)
+
+parking_buffer <- parking_lot %>%
+  st_transform(proj4_aea) %>%
+  st_buffer(dist = 804.672) %>%
+  st_transform(4326)
+
+#Coordinates of campsites and parking lot
+camp_park_points <- tribble(
+  ~point, ~lat, ~lon,
+  "Group Camp ", 42.450976, -72.678154,
+  "Remote Camp", 42.458549, -72.679581,
+  "Parking Lot", 42.448013, -72.680663
+)
+
+#Converting camp and park coordinates into a sf object
+camp_park_sf <- camp_park_points %>%
+  st_as_sf(coords = c("lat", "lon"))
+  
+
+
 proj4_aea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
 
 boundaries_aea <- macleish_layers[["boundary"]] %>%
@@ -46,9 +71,14 @@ leaflet() %>%
   addPolygons(data = stream_buffer, fillOpacity = 0, weight = 1) %>%
   addPolylines(data = macleish_layers[["trails"]], color = "black")%>%
   addPolygons(data = macleish_layers[["buildings"]], 
-              weight = 1, popup = ~name, color = "red") %>%
+              weight = 1, popup = ~name) %>%
   addPolylines(data = macleish_layers[["research"]], color = "brown")%>%
   addPolygons(data = research_buffer, fillOpacity = 0, color = "brown", weight = 1) %>%
-  addMarkers(data=macleish_layers[["challenge_courses"]], popup = ~geometry, )
+  addMarkers(data=macleish_layers[["challenge_courses"]], popup = ~geometry, ) %>%
+  addPolygons(data = challenge_buffer, fillOpacity = 0, color = "red", weight = 1) %>%
+  addMarkers(lng = ~lon, lat = ~lat, data = remote_camp, popup = "Remote Campsite") %>%
+  addMarkers(lng = ~lon, lat = ~lat, data = group_camp, popup = "Group Campsite") %>%
+  addMarkers(lng = ~lon, lat = ~lat, data = parking_lot, popup = "Parking Lot") %>%
+  addPolygons(data = challenge_buffer, fillOpacity = 0, color = "red", weight = 1)
 
 ```
