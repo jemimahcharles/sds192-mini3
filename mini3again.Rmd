@@ -12,19 +12,30 @@ Using the GitHub repository[^1]
 
 [^1]: https://github.com/jemimahcharles/sds192-mini3.git
 
-```{r, warning = FALSE, message = FALSE}
+```{r setup, include=TRUE, warning = FALSE, message = FALSE}
 library(tidyverse)
 library(macleish)
 library(leaflet)
 library(sf)
 library(rgdal)
 library(htmltools)
+library(sp)
+library(rgeos)
 
-
+#computing the lenght of the streams to fit the map's geometry
 trails <- macleish_layers[["streams"]] %>%
   mutate(computed_length = st_length(geometry))
 
+#Make a color set based on the different forest types in the macleish layer of forest
+forest_pal <- colorFactor("Greens", macleish_layers[["forests"]]$Sheet1__Ve)
+
+#Buffers for Streams, Wetlands, Research, Challenge courses
 stream_buffer <- macleish_layers[["streams"]] %>%
+  st_transform(proj4_aea) %>%
+  st_buffer(dist = 60.96) %>%
+  st_transform(4326)
+
+wet_buffer <- macleish_layers[["wetlands"]] %>%
   st_transform(proj4_aea) %>%
   st_buffer(dist = 60.96) %>%
   st_transform(4326)
@@ -39,23 +50,25 @@ challenge_buffer <- macleish_layers[["challenge_courses"]]%>%
   st_buffer(dist = 152.4) %>%
   st_transform(4326)
 
-parking_buffer <- parking_lot %>%
-  st_transform(proj4_aea) %>%
-  st_buffer(dist = 804.672) %>%
-  st_transform(4326)
+#Old campsites' coordinate
+group_camp <- data.frame(lat =42.450976, lon = -72.678154)
+remote_camp <- data.frame(lat = 42.458549, lon = -72.679581)
 
-#Coordinates of campsites and parking lot
-camp_park_points <- tribble(
-  ~point, ~lat, ~lon,
-  "Group Camp ", 42.450976, -72.678154,
-  "Remote Camp", 42.458549, -72.679581,
-  "Parking Lot", 42.448013, -72.680663
-)
+#new data frame for parking lot's coordinates
+example_points <- data.frame(lat = numeric(), long = numeric())
+example_points[1,] <- c(42.448013, -72.680663)
+coordinates(example_points) <- (~long + lat)
 
-#Converting camp and park coordinates into a sf object
-camp_park_sf <- camp_park_points %>%
-  st_as_sf(coords = c("lat", "lon"))
-  
+#buffer for parking lot
+pointsBuffer <- gBuffer(example_points, width= .008, byid = TRUE, capStyle="ROUND", joinStyle="ROUND")
+
+#new data set for new 
+camp_points <- data.frame(lat = numeric(), long = numeric())
+camp_points[1,] <- c(42.448963, -72.682359)
+camp_points[2,] <- c(42.447396, -72.679648)
+coordinates(camp_points) <- (~long + lat)
+
+campBuffer <- gBuffer(camp_points, width= .008, byid = TRUE, capStyle="ROUND", joinStyle="ROUND")
 
 
 proj4_aea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
@@ -64,21 +77,38 @@ boundaries_aea <- macleish_layers[["boundary"]] %>%
   st_transform(proj4_aea)
 
 leaflet() %>%
-  addTiles() %>%
+  # Base groups
+  addTiles(group = "OpenStreetMap") %>%
+  addProviderTiles("Esri.WorldTopoMap", group = "Topography") %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
+  addProviderTiles("Stamen.TonerLite", group = "Toner Lite") %>%
+  # Boundaries
   addPolygons(data = macleish_layers[["forests"]], 
-              weight = 1, fillOpacity =  0, color = "green", popup = ~ Sheet1__Na)%>%
-  addPolylines(data = macleish_layers[["streams"]], color = "blue")%>%
-  addPolygons(data = stream_buffer, fillOpacity = 0, weight = 1) %>%
-  addPolylines(data = macleish_layers[["trails"]], color = "black")%>%
+              weight = 1, color = ~forest_pal(Sheet1__Ve), fillOpacity = 0.85, popup = ~ Sheet1__Na, group = "Forest") %>%
+  addPolygons(data = research_buffer, fillOpacity = .15, color = "brown", weight = 1, group = "Research") %>%
+  addPolygons(data = challenge_buffer, fillOpacity = .15, color = "red", weight = 1, group = "Challenge") %>%
+  addPolylines(data = macleish_layers[["streams"]], color = "blue", group = "Streams")%>%
+  addPolygons(data = stream_buffer, fillOpacity = 0, weight = 1, group = "Streams") %>%
+  addPolygons(data = macleish_layers[["wetlands"]], 
+              weight = 1, group = "Wetlands") %>%
+  addPolygons(data = wet_buffer, fillOpacity = 0, weight = 1, group = "Wetlands") %>%
+  addPolylines(data = macleish_layers[["trails"]], color = "black", group = "Trails")%>%
   addPolygons(data = macleish_layers[["buildings"]], 
-              weight = 1, popup = ~name) %>%
-  addPolylines(data = macleish_layers[["research"]], color = "brown")%>%
-  addPolygons(data = research_buffer, fillOpacity = 0, color = "brown", weight = 1) %>%
-  addMarkers(data=macleish_layers[["challenge_courses"]], popup = ~geometry, ) %>%
-  addPolygons(data = challenge_buffer, fillOpacity = 0, color = "red", weight = 1) %>%
+              weight = 1, popup = ~ name, color ="black", group = "Buildings") %>%
+  addPolylines(data = macleish_layers[["research"]], color = "black", group = "Research")%>%
+  addMarkers(data=macleish_layers[["challenge_courses"]], popup = ~geometry, label = "Challenge Course", group = "Challenge") %>%
   addMarkers(lng = ~lon, lat = ~lat, data = remote_camp, popup = "Remote Campsite") %>%
   addMarkers(lng = ~lon, lat = ~lat, data = group_camp, popup = "Group Campsite") %>%
-  addMarkers(lng = ~lon, lat = ~lat, data = parking_lot, popup = "Parking Lot") %>%
-  addPolygons(data = challenge_buffer, fillOpacity = 0, color = "red", weight = 1)
+  addMarkers(data=example_points, label = "Parking Lot")%>%
+  addPolygons(data=pointsBuffer, fillOpacity = 0, weight = .75)%>%
+  addMarkers(data=camp_points, label = c("Camp 1", "Camp 2"))%>%
+  addPolylines(data=macleish_layers[["contours_30ft"]], weight = 3, color = "purple", group = "Topography of Macleish")%>%
+  # Layers control
+  addLayersControl(
+    baseGroups = c("OpenStreetMap", "Topography", "Satellite", "Toner Lite"),
+    overlayGroups = c("Streams", "Wetlands", "Research", "Challenge", "Topography of Macleish", "Forest"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
 
 ```
