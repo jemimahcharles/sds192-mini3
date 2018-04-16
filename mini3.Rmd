@@ -43,7 +43,7 @@ boundaries_aea <- macleish_layers[["boundary"]] %>%
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = macleish_layers[["forests"]], 
-              color = ~forest_pal(Sheet1__Na), weight = 0.1, 
+              color = ~forest_pal(Sheet1__Na), weight = 0.1,
               fillOpacity = 0.5,
               popup = ~ Sheet1__Na, group = "Natural")%>%
   addPolylines(data = macleish_layers[["streams"]], color = "blue")%>%
